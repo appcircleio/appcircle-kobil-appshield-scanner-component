@@ -8,7 +8,6 @@ import importlib
 
 # Params
 BASE_URL = "https://api.appshield.kobil.com"
-SECRET_KEY = "f8b36d6f-7220-4fb5-8ad2-70a9a9dd2da6"
 
 def print_colored(message, level="info"):
     """
@@ -47,10 +46,10 @@ def set_env_var_in_file(key, value):
 
 
 # Upload & Poll helpers
-def upload_and_start_test(file_path, user_email):
+def upload_and_start_test(file_path, user_email, api_key):
     try:
         upload_url = urljoin(BASE_URL, "/upload_and_test_app_parallel")
-        headers = {"secret-key": SECRET_KEY}
+        headers = {"secret-key": api_key}
         data = {
             "user_email": user_email
         }
@@ -111,10 +110,10 @@ def upload_and_start_test(file_path, user_email):
         if f:
             f.close()
 
-def poll_session_status(session_id, estimated_wait_minutes, poll_interval=10):
+def poll_session_status(session_id, estimated_wait_minutes, api_key, poll_interval=10):
     
     status_url = urljoin(BASE_URL, f"/get-session-status?session_id={session_id}")
-    headers = {"secret-key": SECRET_KEY}
+    headers = {"secret-key": api_key}
     status_arr = ["queued", "active", "completed", "not exist"]
 
     max_wait_seconds = estimated_wait_minutes*60 if estimated_wait_minutes > 0 else 60000
@@ -155,9 +154,9 @@ def poll_session_status(session_id, estimated_wait_minutes, poll_interval=10):
             return None
 
 # Fetch results directly from DB
-def get_session_results(session_id):
+def get_session_results(session_id, api_key):
     status_url = urljoin(BASE_URL, f"/get-session-results?session_id={session_id}")
-    headers = {"secret-key": SECRET_KEY}
+    headers = {"secret-key": api_key}
     try:
         print_colored(f"Fetching test results for session {session_id}...")
         response = requests.get(status_url, headers=headers, timeout=60, verify=False)
@@ -186,12 +185,16 @@ def get_session_results(session_id):
     
 
 # Per-test runner
-def run_scanner(file_path=None, user_email=None):
+def run_scanner(file_path=None, user_email=None, api_key=None):
     is_app_secure = None
     try:
         # Check parameters first
         if not file_path:
             raise Exception("FILE_PATH_REQUIRED: File path is required")
+        
+        if not api_key:
+            raise Exception("api_key_REQUIRED: Secret key is required")
+        
         if not user_email:
             user_email = "efe.erdil@kobil.com"
             print_colored(f"[RUN_SCANNER] User e-mail not provided, using default: {user_email}", level="warn")
@@ -202,6 +205,7 @@ def run_scanner(file_path=None, user_email=None):
         session_id, estimated_wait_minutes = upload_and_start_test(
             file_path=file_path,
             user_email=user_email,
+            api_key=api_key
         )
 
         # App protected case
@@ -214,47 +218,59 @@ def run_scanner(file_path=None, user_email=None):
         if not session_id:
             raise Exception("UPLOAD_FAILED")
 
-        res = poll_session_status(session_id, estimated_wait_minutes)
+        res = poll_session_status(session_id, estimated_wait_minutes, api_key=api_key)
         if not res:
             raise Exception("GET_SESSION_STATUS_FAILED")
         
-        is_app_secure = get_session_results(session_id)
+        is_app_secure = get_session_results(session_id, api_key=api_key)
 
         if is_app_secure is None:
             raise Exception("GET_SESSION_RESULTS_FAILED")
         
         print_colored("Test OK, app is secured" if is_app_secure else "Test OK, app is NOT secured", level="success")
+
+        if is_app_secure is False:
+            raise Exception("APP IS NOT SECURE!")
+        
+        print_colored(f"Test OK, APP IS SECURE, Setting AC_APPSHIELD_IS_APP_SECURE to true...", level="success")
         return is_app_secure
     except Exception as e:
         print_colored(f"@@[error] [RUN_SCANNER] Error: {str(e)}", level="error")
+        sys.exit(1)
         return None
     finally:
         print_colored(f"Setting AC_APPSHIELD_IS_APP_SECURE to {is_app_secure}")
         set_env_var_in_file("AC_APPSHIELD_IS_APP_SECURE", "null" if is_app_secure is None else str(is_app_secure).lower())
+       
 
 if __name__ == "__main__":
+    try:
+        print_colored("Installing dependencies...")
 
-    print_colored("Installing dependencies...")
+        subprocess.run([
+            sys.executable, "-m", "pip", "install",
+            "requests", "urllib3", "--break-system-packages", "--user"
+        ], check=True)
 
-    subprocess.run([
-        sys.executable, "-m", "pip", "install",
-        "requests", "urllib3", "--break-system-packages", "--user"
-    ], check=True)
+        # reload import system (optional but safer)
+        importlib.invalidate_caches()
 
-    # reload import system (optional but safer)
-    importlib.invalidate_caches()
+        sys.path.append(site.getusersitepackages())
 
-    sys.path.append(site.getusersitepackages())
+        # now import
+        import requests, urllib3
 
-    # now import
-    import requests, urllib3
+        print("✅ Requests and urllib3 imported successfully!", requests.__version__, urllib3.__version__)
+        
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    print("✅ Requests and urllib3 imported successfully!", requests.__version__, urllib3.__version__)
-    
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        DEFAULT_FILE_PATH = os.getenv("AC_APPSHIELD_APP_FILE_PATH")
+        DEFAULT_EMAIL = os.getenv("AC_APPSHIELD_USER_MAIL")
+        API_KEY = os.getenv("AC_APPSHIELD_API_KEY")
 
-    DEFAULT_FILE_PATH = os.getenv("AC_APPSHIELD_APP_FILE_PATH")
-    DEFAULT_EMAIL = os.getenv("AC_APPSHIELD_USER_MAIL")
+        # print(DEFAULT_EMAIL, DEFAULT_FILE_PATH)
+        print_colored(run_scanner(file_path=DEFAULT_FILE_PATH, user_email=DEFAULT_EMAIL, api_key=API_KEY))
 
-    # print(DEFAULT_EMAIL, DEFAULT_FILE_PATH)
-    print_colored(run_scanner(file_path=DEFAULT_FILE_PATH, user_email=DEFAULT_EMAIL))
+    except Exception as e:
+        print_colored(f"@@[error] [MAIN] Error: {str(e)}", level="error")
+        sys.exit(1)

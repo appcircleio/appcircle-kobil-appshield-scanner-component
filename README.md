@@ -1,7 +1,7 @@
-# Appcircle _AppShield Scanner_ component for Android/iOS
+# Appcircle _KOBIL AppShield Scanner_ component for Android/iOS
 
 Integration that allows testing security and app protection features, and determines whether an app contains security/defense mechanisms,
-using Appshield Scanner API.
+using KOBIL Appshield Scanner API.
 
 ## Required Inputs
 

@@ -37,18 +37,16 @@ def set_env_var_in_file(key, value):
         
         env_path = os.getenv("AC_ENV_FILE_PATH")
         if not env_path or not os.path.exists(env_path):
-            raise FileNotFoundError(f"AC_ENV_FILE_PATH is not set or file not found: {env_path}")
+            raise FileNotFoundError(f"AC_ENV_FILE_PATH is not set or file not found")
 
         line = key + "=" + value + "\n"
-        print_colored(f"Key: {key}, Value: {value}, Path: {env_path}")
 
         with open(env_path, "a+") as f:
             f.write(line)
 
-        print_colored(f"✅ Updated {key} in {env_path}", level="success")
         return True
     except Exception as e:
-        print_colored(f"@@[error] [SET_ENV_VAR_IN_FILE] Error: ❌ Failed to update {key} in {env_path}: {e}", level="error")
+        print_colored(f"@@[error] [SET_ENV_VAR_IN_FILE] Error: ❌ Failed to update key: {e}", level="error")
         return None
 
 
@@ -112,12 +110,6 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
     except (requests.exceptions.RequestException, Exception) as e:
         print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error: {type(e).__name__}: {str(e)}", level="error")
         return None
-    finally:
-        if f is not None:
-            try:
-                f.close()
-            except Exception:
-                pass
 
 def poll_session_status(session_id, max_wait_seconds, api_key):
     
@@ -193,7 +185,7 @@ def get_session_results(session_id, api_key):
     
 
 # Per-test runner
-def run_scanner(file_path=None, user_email=None, api_key=None, upload_timeout=300):
+def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
     is_app_secure = None
     try:
         if not user_email:

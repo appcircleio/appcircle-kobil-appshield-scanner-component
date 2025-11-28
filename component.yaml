@@ -21,14 +21,14 @@ inputs:
   defaultValue: ""
   isRequired: false
   title: User e-mail
-  description: "(Optional) An e-mail address for sending the test result PDF."
+  description: "An e-mail address for sending the test result PDF."
   helpText:
 
 - key: "AC_APPSHIELD_UPLOAD_TIMEOUT"
-  defaultValue: 300
+  defaultValue: "300"
   isRequired: false
   title: File Upload Timeout
-  description: "(Optional) File upload timeout in seconds."
+  description: "File upload timeout in seconds."
   helpText:
  
 outputs:

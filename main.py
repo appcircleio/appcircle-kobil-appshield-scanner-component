@@ -192,12 +192,13 @@ def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
             print_colored(f"[RUN_SCANNER] User e-mail not provided, no mail will be sent...", level="warn")
         
     
-        size = os.path.getsize(file_path)
-        if not size or size == 0:
-            raise Exception(f"Not a valid file: {file_path}")
-        print_colored(f"[RUN_SCANNER] File size: {size} bytes")
-      
+        if not os.path.exists(file_path):
+            raise Exception(f"File not found: {file_path}")
         
+        file_extension = file_path.split(".")[-1].lower()
+        if file_extension not in ["apk", "aab", "ipa"]:
+            raise Exception(f"Invalid file extension: {file_extension}")
+       
         resp = upload_and_start_test(
             file_path=file_path,
             user_email=user_email,

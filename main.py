@@ -102,6 +102,8 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
             if "already protected" in message:
                 print_colored("App already protected by KOBIL.")
                 return True
+            
+            print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error message: {message}", level="error")
         except Exception:
             pass
 

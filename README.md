@@ -13,6 +13,5 @@ Integration that allows testing security and app protection features, and determ
 
 ## Output Variables
 
-- `AC_APPSHIELD_IS_APP_SECURE`: Booelan variable indicating whether the app is properly hardened and contains the security/defense mechanisms. 
-    "true" indicates app is secure, "false" indicates app is not completely secure (has missing security measures), and "null" indicates the testing has failed for some internal reason.
+- `AC_APPSHIELD_IS_APP_SECURE`: Booelan variable indicating whether the app is properly hardened and contains the security/defense mechanisms. "true" indicates app is secure, "false" indicates app is not completely secure (has missing security measures), and "null" indicates the testing has failed for some internal reason.
 

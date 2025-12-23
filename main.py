@@ -121,18 +121,16 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
 
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "unknown"
-        print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error: HTTP {status} error", level="error")
         try:
             err_json = e.response.json()
             message = err_json.get("message", "").lower()
             if "already protected" in message:
                 print_colored("App already protected by KOBIL.")
                 return True
-            
-            print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error message: {message}", level="error")
         except Exception:
             pass
 
+        print_colored(f"@@[error] [UPLOAD_AND_START_TEST] HTTP {status} error, error message: {message}", level="error")
         return None
     
     except (requests.exceptions.RequestException, Exception) as e:

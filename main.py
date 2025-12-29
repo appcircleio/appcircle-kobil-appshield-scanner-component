@@ -6,7 +6,6 @@ import sys, site
 import subprocess
 import importlib
 
-
 BASE_URL = "https://api.appshield.kobil.com"
 
 def is_valid_int(x):
@@ -32,9 +31,33 @@ def print_colored(message, level="info"):
     color = colors.get(level.lower(), "\033[0m")
     print(f"{color}{message}{reset}")
 
+def install_dependencies():
+    try:
+        print_colored("Installing dependencies...")
+
+        def pip_install(*packages):
+            subprocess.run([
+                sys.executable, "-m", "pip", "install",
+                *packages,
+                "--break-system-packages", "--user"
+            ], check=True)
+
+        pip_install("--upgrade", "pip")
+        pip_install("requests")
+
+        importlib.invalidate_caches()
+        sys.path.append(site.getusersitepackages())
+        
+        import requests
+        print("✅ Requests imported successfully!", requests.__version__)
+        return True
+
+    except Exception as e:
+        print_colored(f"@@[error] [INSTALL_DEPENDENCIES] Error: {str(e)}", level="error")
+        return None
+
 def set_env_var_in_file(key, value):
     try:
-        
         env_path = os.getenv("AC_ENV_FILE_PATH")
         if not env_path or not os.path.exists(env_path):
             raise FileNotFoundError(f"AC_ENV_FILE_PATH is not set or file not found")
@@ -52,6 +75,13 @@ def set_env_var_in_file(key, value):
 
 def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
     try:
+        import requests
+    except ImportError:
+        print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
+        return None
+    
+    try:
+
         upload_url = urljoin(BASE_URL, "/upload_and_test_app_parallel")
         headers = {"secret-key": api_key}
         data = {
@@ -95,18 +125,16 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
 
     except requests.exceptions.HTTPError as e:
         status = e.response.status_code if e.response is not None else "unknown"
-        print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error: HTTP {status} error", level="error")
         try:
             err_json = e.response.json()
             message = err_json.get("message", "").lower()
             if "already protected" in message:
                 print_colored("App already protected by KOBIL.")
                 return True
-            
-            print_colored(f"@@[error] [UPLOAD_AND_START_TEST] Error message: {message}", level="error")
         except Exception:
             pass
 
+        print_colored(f"@@[error] [UPLOAD_AND_START_TEST] HTTP {status} error, error message: {message}", level="error")
         return None
     
     except (requests.exceptions.RequestException, Exception) as e:
@@ -114,6 +142,11 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
         return None
 
 def poll_session_status(session_id, max_wait_seconds, api_key):
+    try:
+        import requests
+    except ImportError:
+        print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
+        return None
     
     status_url = urljoin(BASE_URL, f"/get-session-status?session_id={session_id}")
     headers = {"secret-key": api_key}
@@ -158,6 +191,12 @@ def poll_session_status(session_id, max_wait_seconds, api_key):
     return None
 
 def get_session_results(session_id, api_key):
+    try:
+        import requests
+    except ImportError:
+        print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
+        return None
+
     status_url = urljoin(BASE_URL, f"/get-session-results?session_id={session_id}")
     headers = {"secret-key": api_key}
     try:
@@ -193,14 +232,17 @@ def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
         if not user_email:
             print_colored(f"[RUN_SCANNER] User e-mail not provided, no mail will be sent...", level="warn")
         
-    
         if not os.path.exists(file_path):
             raise Exception(f"File not found: {file_path}")
         
         file_extension = file_path.split(".")[-1].lower()
         if file_extension not in ["apk", "aab", "ipa"]:
             raise Exception(f"Invalid file extension: {file_extension}")
-       
+        
+        res = install_dependencies()
+        if not res:
+            raise Exception("INSTALL DEPENDENCIES FAILED")
+        
         resp = upload_and_start_test(
             file_path=file_path,
             user_email=user_email,
@@ -214,7 +256,7 @@ def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
             return True
 
         if not resp:
-            raise Exception("UPLOAD AND START TEST FAILED: no response")
+            raise Exception("UPLOAD AND START TEST FAILED: Exception received.")
         
 
         session_id = resp.get("session_id")
@@ -233,11 +275,6 @@ def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
             raise Exception("GET SESSION RESULTS FAILED")
         
         print_colored("Test OK, app is secured" if is_app_secure else "Test OK, app is NOT secured", level="success")
-
-        if is_app_secure is False:
-            raise Exception("APP IS NOT SECURE!")
-        
-        print_colored(f"Test OK, APP IS SECURE, Setting AC_APPSHIELD_IS_APP_SECURE to true...", level="success")
         return is_app_secure
     except Exception as e:
         print_colored(f"@@[error] [RUN_SCANNER] Error: {str(e)}", level="error")
@@ -246,37 +283,21 @@ def run_scanner(upload_timeout, file_path=None, user_email=None, api_key=None):
         print_colored(f"Setting AC_APPSHIELD_IS_APP_SECURE to {is_app_secure}")
         set_env_var_in_file("AC_APPSHIELD_IS_APP_SECURE", "null" if is_app_secure is None else str(is_app_secure).lower())
        
-
 if __name__ == "__main__":
     try:
-        print_colored("Installing dependencies...")
-
-        subprocess.run([
-            sys.executable, "-m", "pip", "install",
-            "requests", "urllib3", "--break-system-packages", "--user"
-        ], check=True)
-
-        importlib.invalidate_caches()
-
-        sys.path.append(site.getusersitepackages())
-
-        import requests, urllib3
-
-        print("✅ Requests and urllib3 imported successfully!", requests.__version__, urllib3.__version__)
-        
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
         DEFAULT_FILE_PATH = os.getenv("AC_APPSHIELD_APP_FILE_PATH")
         API_KEY = os.getenv("AC_APPSHIELD_API_KEY")
 
         DEFAULT_EMAIL = os.getenv("AC_APPSHIELD_USER_MAIL") or ""
         DEFAULT_UPLOAD_TIMEOUT = is_valid_int(os.getenv("AC_APPSHIELD_UPLOAD_TIMEOUT")) or 300
 
-        
         res = run_scanner(file_path=DEFAULT_FILE_PATH, user_email=DEFAULT_EMAIL, api_key=API_KEY, 
                         upload_timeout=DEFAULT_UPLOAD_TIMEOUT)
-        if not res:
+        if res is None:
             raise Exception("RUN SCANNER FAILED")
+
+        if res is False:
+            raise Exception("App is NOT secure")
 
     except Exception as e:
         print_colored(f"@@[error] [MAIN] Error: {str(e)}", level="error")

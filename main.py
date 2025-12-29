@@ -5,6 +5,7 @@ from urllib.parse import urljoin
 import sys, site
 import subprocess
 import importlib
+import platform
 
 BASE_URL = "https://api.appshield.kobil.com"
 
@@ -42,12 +43,14 @@ def install_dependencies():
                 "--break-system-packages", "--user"
             ], check=True)
 
-        pip_install("--upgrade", "pip")
+        if platform.system() == "Linux":
+            pip_install("--upgrade", "pip")
+
         pip_install("requests")
 
         importlib.invalidate_caches()
         sys.path.append(site.getusersitepackages())
-        
+
         import requests
         print("✅ Requests imported successfully!", requests.__version__)
         return True
@@ -71,7 +74,6 @@ def set_env_var_in_file(key, value):
     except Exception as e:
         print_colored(f"@@[error] [SET_ENV_VAR_IN_FILE] Error: ❌ Failed to update key: {e}", level="error")
         return None
-
 
 def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
     try:

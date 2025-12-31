@@ -5,7 +5,6 @@ from urllib.parse import urljoin
 import sys, site
 import subprocess
 import importlib
-import platform
 
 BASE_URL = "https://api.appshield.kobil.com"
 
@@ -38,12 +37,12 @@ def install_dependencies():
 
         def pip_install(*packages):
             subprocess.run([
-                sys.executable, "-m", "pip", "install",
+                sys.executable, "-m", "pip", "install", 
                 *packages,
                 "--break-system-packages", "--user"
             ], check=True)
 
-        if platform.system() == "Linux":
+        if sys.platform == "linux":
             pip_install("--upgrade", "pip")
 
         pip_install("requests")
@@ -75,15 +74,21 @@ def set_env_var_in_file(key, value):
         print_colored(f"@@[error] [SET_ENV_VAR_IN_FILE] Error: ❌ Failed to update key: {e}", level="error")
         return None
 
-def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
+def import_requests():
     try:
         import requests
+        return requests
     except ImportError:
         print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
         return None
+
+def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
+    requests = import_requests()
+
+    if not requests:
+        raise Exception("Failed to import requests module")
     
     try:
-
         upload_url = urljoin(BASE_URL, "/upload_and_test_app_parallel")
         headers = {"secret-key": api_key}
         data = {
@@ -144,11 +149,10 @@ def upload_and_start_test(file_path, user_email, api_key, upload_timeout):
         return None
 
 def poll_session_status(session_id, max_wait_seconds, api_key):
-    try:
-        import requests
-    except ImportError:
-        print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
-        return None
+    requests = import_requests()
+
+    if not requests:
+        raise Exception("Failed to import requests module")
     
     status_url = urljoin(BASE_URL, f"/get-session-status?session_id={session_id}")
     headers = {"secret-key": api_key}
@@ -193,11 +197,10 @@ def poll_session_status(session_id, max_wait_seconds, api_key):
     return None
 
 def get_session_results(session_id, api_key):
-    try:
-        import requests
-    except ImportError:
-        print_colored("@@[error] [GET_SESSION_RESULTS] Error: requests module not found", level="error")
-        return None
+    requests = import_requests()
+
+    if not requests:
+        raise Exception("Failed to import requests module")
 
     status_url = urljoin(BASE_URL, f"/get-session-results?session_id={session_id}")
     headers = {"secret-key": api_key}

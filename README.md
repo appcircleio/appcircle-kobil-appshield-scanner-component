@@ -5,6 +5,7 @@ Integration that allows testing security and app protection features, and determ
 ## Required Inputs
 
 - `AC_APPSHIELD_APP_FILE_PATH`: App file URL or environment variable. URL to app file (apk/aab/ipa) or an environment variable representing its path.
+- `AC_APPSHIELD_API_KEY` : API key required for using KOBIL Appshield Scanner API.
 
 ## Optional Inputs
 

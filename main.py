@@ -35,24 +35,29 @@ def install_dependencies():
     try:
         print_colored("Installing dependencies...")
 
-        def pip_install(*packages):
+        if sys.platform == "linux":
+            try:
+                subprocess.run([
+                    sys.executable, "-m", "pip", "install", 
+                    "--upgrade", "pip", "--user"
+                ], check=True, capture_output=True)
+            except:
+                pass
+
+        try:
             subprocess.run([
                 sys.executable, "-m", "pip", "install", 
-                *packages,
-                "--break-system-packages", "--user"
+                "requests", "--break-system-packages", "--user"
             ], check=True)
-
-        if sys.platform == "linux":
-            pip_install("--upgrade", "pip")
-
-        pip_install("requests")
+        except subprocess.CalledProcessError:
+            subprocess.run([
+                sys.executable, "-m", "pip", "install", 
+                "requests", "--user"
+            ], check=True)
             
         importlib.invalidate_caches()
-
         sys.path.append(site.getusersitepackages())
-
         import requests
-
         print("✅ Requests imported successfully!", requests.__version__)
         return True
     except Exception as e:
